@@ -1,32 +1,32 @@
 """
 The MovingSign class handles parsing of "Moving Sign"
-Communication Protocol V1.2. This class allows you to 
-construct an ASCII encoded command to program text, 
+Communication Protocol V1.2. This class allows you to
+construct an ASCII encoded command to program text,
 graphics, and special functions for a 'BigBrite' LED sign.
 
-Protocol format consists of a 5 byte start command, 5 byte 
+Protocol format consists of a 5 byte start command, 5 byte
 header, Data field of max 4K message length, 6 byte message end
 including a 4 byte checksum.
 
 # Communication protocol payload format
-  
+
 # Command Code (1 byte)
 # 'A' - Write text file command
 # 'C' - Write variable command
 # 'E' - Write graphics file command
 # 'W' - Write special function command
 # 'R' - Read special function (Not used)
-  
+
 # File name (1 byte)
 # '0-9','A-Z' - Filename LED storage, sign cycles through sequentially
-  
+
 # Pause Time (1 byte)
 # '0-9' - 0 to 9 seconds
 
 # Show date (2 bytes)
 # If date is allowed to display, then bit is 1, otherwise 0.
 # Example: Sunday, Monday, Thursday is '13'. All week is '7F'
-  
+
 # bit0 - Sunday
 # bit1 - Monday
 # bit2 - Tuesday
@@ -35,31 +35,31 @@ including a 4 byte checksum.
 # bit5 - Friday
 # bit6 - Saturday
 # bit7 - null
-    
+
 # Start Show Time (4 bytes)
-# Two ASCII characters for hour, two for minute. 
+# Two ASCII characters for hour, two for minute.
 # Example: 3:23am is '0323'
 # '00-24' - hour
-# '00-59' - minute 
- 
+# '00-59' - minute
+
 # End Show Time (4 bytes)
-# Two ASCII characters for hour, two for minute. 
+# Two ASCII characters for hour, two for minute.
 # Example: 3:23pm is '1523'
 # '00-24' - hour
 # '00-59' - minute
-  
+
 # Preparative (3 bytes)
 # For future applications... or never. Always 0
 # Example: '000'
 # '0-0' - O_O
-  
+
 # Graphics File (2 bytes)
 # Lead Character 0xFC
 # '0-9','A-Z' - Graphics filename
 
 # Variable (2 bytes)
 # Lead Character 0xFB
- 
+
 # 'A' - hh:mm:ss
 # 'B' - hh:mm:ss AM/PM
 # 'C' - hh:mm
@@ -68,7 +68,7 @@ including a 4 byte checksum.
 # 'F' - yyyy-mm-dd
 # 'G' - dd.MM yyyy
 # 'H' - mm'dd'yyyy
-# 'I' - English week shortened form 
+# 'I' - English week shortened form
 # 'J' - English week full form
 # 'K' - Count down (hh:mm:ss), after the K, 6 bytes show the start time
 #       another 6 bytes show the end time.
@@ -76,19 +76,19 @@ including a 4 byte checksum.
 #       01:00:30, countdown time is 1 minute 30 second
 # 'L' - Count down (date) after the 'L' 6 bytes show the end date
 #       Example: '051023' shows the end date is 2005-10-23
-        
+
 # Temperature (2 bytes)
 # Lead character 0xF9
 # 'A' - Fahrenheit
 # 'B' - Celsius
-  
+
 # Enter (1 byte)
 # 0x7F
-  
+
 # ASCII (1 byte)
 # 0x20 - 0x7E valid characters
 
-"""  
+"""
 
 from time import strftime
 
@@ -221,7 +221,7 @@ class MovingSign(object):
         "gas": '\xe5', # sideways gas?
         "chair": '\xe6',
         "shoe": '\xe7', # high heeled shoe
-        "martini": '\xe8', 
+        "martini": '\xe8',
         "envelope": '\xe9',
         "hamburger": '\xea' # top of a hamburger w/ eyes
     }
@@ -241,12 +241,14 @@ class MovingSign(object):
         self.stop_time = b"2400"
         self.prep = b"000"
         self.align = b'3'
+        self.color = b'C'
+        self.font = b'F'
         self.header = bytearray([self.NUL, self.NUL, self.NUL, self.NUL, self.NUL])
 
-    def checksum(self, mesg):    
+    def checksum(self, mesg):
         """
         Generate checksum of 4 bytes
-        generated from sum of bytes from 
+        generated from sum of bytes from
         data message payload.
         """
         val = sum(bytearray(mesg))
@@ -282,10 +284,22 @@ class MovingSign(object):
         """
         self.align = align
 
+    def set_text_font(self, font):
+        """
+        Set display speed
+        """
+        self.font = font
+
+    def set_text_color(self, color):
+        """
+        Set display speed
+        """
+        self.color = color
+
     def protocol(self, mesg):
         """
         Create finalized protocol string
-        including header details, message, 
+        including header details, message,
         and checksum values.
         """
         cmd = bytearray([])
@@ -313,6 +327,10 @@ class MovingSign(object):
         mesg += self.stop_time
         mesg += self.prep
         mesg += self.align
+        mesg += bytearray([self.COLOR_VAL])
+        mesg += self.color
+        mesg += bytearray([self.FONT_VAL])
+        mesg += self.font
         mesg += data
         mesg += self.ETX
         return self.protocol(mesg)
@@ -410,7 +428,7 @@ class MovingSign(object):
         """
         mesg = self.clock(strftime("%Y%m%d%H%M%S%w"))
         return mesg
-        
+
     def passwd(self, passwd):
         """
         Set password (6 ASCII char)
@@ -445,7 +463,7 @@ class MovingSign(object):
         mesg = self.cmd_write_special(b'E' + display_times)
         return mesg
 
-    def set_display_mode(self, display_time):
+    def set_display_mode(self, display_mode):
         """
         Set display mode (1 bytes)
         Subcontrol command: 'F'
